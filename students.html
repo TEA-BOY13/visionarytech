@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Student Interface</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:linear-gradient(120deg,#003049,#669bbc,#a8dadc);
+height:100vh;
+display:flex;
+flex-direction:column;
+align-items:center;
+}
+
+#header{
+width:100%;
+background:#003049;
+color:white;
+padding:15px;
+text-align:center;
+}
+
+#transcript{
+width:90%;
+max-width:900px;
+height:300px;
+margin-top:20px;
+padding:15px;
+background:white;
+border-radius:8px;
+overflow-y:auto;
+font-size:18px;
+}
+
+#controls{
+margin-top:20px;
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+justify-content:center;
+}
+
+select,button{
+padding:10px;
+border:none;
+border-radius:6px;
+background:#0077b6;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#023e8a;
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div id="header">
+<h2>Live Lecture Transcription</h2>
+</div>
+
+
+<div id="controls">
+
+<select id="languageSelect">
+<option value="en|en">English</option>
+<option value="en|fr">French</option>
+<option value="en|ar">Arabic</option>
+<option value="en|ha">Hausa</option>
+<option value="en|yo">Yoruba</option>
+<option value="en|ig">Igbo</option>
+<option value="en|ff">Fulfulde</option>
+</select>
+
+<button onclick="speakText()">🔊 Listen</button>
+
+<button onclick="generatePDF()">📄 Save as PDF</button>
+
+</div>
+
+
+<div id="transcript">
+Waiting for lecturer...
+</div>
+
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+<!-- PDF Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+<script>
+
+const transcriptDiv=document.getElementById("transcript");
+const languageSelect=document.getElementById("languageSelect");
+
+
+/* FIREBASE CONFIG */
+
+const firebaseConfig={
+apiKey:"AIzaSyBbXGnrJZd6sh48qBaMJFojs0tQR571nsE",
+authDomain:"rtvoicet.firebaseapp.com",
+databaseURL:"https://rtvoicet-default-rtdb.firebaseio.com",
+projectId:"rtvoicet",
+storageBucket:"rtvoicet.firebasestorage.app",
+messagingSenderId:"574390825166",
+appId:"1:574390825166:web:29a4368f3d7829fa01a09f",
+measurementId:"G-59M7EXW6N3"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+
+
+/* REAL TIME TRANSCRIPT */
+
+db.ref("transcript").on("value",async(snapshot)=>{
+
+const text=snapshot.val();
+
+if(!text) return;
+
+const translated=await translateText(text);
+
+transcriptDiv.innerText=translated;
+
+});
+
+
+
+/* TRANSLATION */
+
+async function translateText(text){
+
+const langPair=languageSelect.value;
+
+if(langPair==="en|en") return text;
+
+const url=`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+
+const response=await fetch(url);
+
+const data=await response.json();
+
+return data.responseData.translatedText;
+
+}
+
+
+
+/* TEXT TO SPEECH */
+
+function speakText(){
+
+const speech=new SpeechSynthesisUtterance(transcriptDiv.innerText);
+
+speech.lang="en-US";
+
+speech.rate=1;
+
+window.speechSynthesis.speak(speech);
+
+}
+
+
+
+/* SAVE PDF */
+
+function generatePDF(){
+
+const {jsPDF}=window.jspdf;
+
+const doc=new jsPDF();
+
+const text=transcriptDiv.innerText;
+
+const lines=doc.splitTextToSize(text,180);
+
+doc.text(lines,10,10);
+
+doc.save("lecture_transcript.pdf");
+
+}
+
+</script>
+
+</body>
+</html>

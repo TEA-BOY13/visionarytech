@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VStudent Live Lecture</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:linear-gradient(120deg,#003049,#669bbc,#a8dadc);
+height:100vh;
+display:flex;
+flex-direction:column;
+align-items:center;
+}
+
+header{
+width:100%;
+background:#003049;
+color:white;
+padding:15px;
+text-align:center;
+font-size:22px;
+}
+
+#controls{
+margin-top:15px;
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+justify-content:center;
+}
+
+select,button{
+padding:10px 15px;
+border-radius:6px;
+border:none;
+background:#0077b6;
+color:white;
+font-size:15px;
+cursor:pointer;
+}
+
+button:hover{
+background:#023e8a;
+}
+
+#transcript{
+width:92%;
+max-width:900px;
+height:320px;
+background:white;
+margin-top:20px;
+padding:20px;
+border-radius:10px;
+overflow-y:auto;
+font-size:18px;
+line-height:1.6;
+}
+
+#status{
+margin-top:10px;
+font-size:14px;
+color:white;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>🎓 VStudent Live Lecture</header>
+
+<div id="controls">
+
+<select id="languageSelect">
+<option value="en|en">English</option>
+<option value="en|fr">French</option>
+<option value="en|ar">Arabic</option>
+<option value="en|ha">Hausa</option>
+<option value="en|yo">Yoruba</option>
+<option value="en|ig">Igbo</option>
+<option value="en|ff">Fulfulde</option>
+</select>
+
+<button onclick="generatePDF()">📄 Save PDF</button>
+
+<button onclick="toggleSpeech()">🔊 Toggle Voice</button>
+
+</div>
+
+<div id="transcript">
+Waiting for lecturer...
+</div>
+
+<div id="status">Status: Connected</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+
+const transcriptDiv = document.getElementById("transcript");
+const languageSelect = document.getElementById("languageSelect");
+
+let speechEnabled = true;
+
+let sentenceQueue = [];
+let speaking = false;
+
+let lastSentenceCount = 0;
+
+const firebaseConfig = {
+apiKey:"AIzaSyBbXGnrJZd6sh48qBaMJFojs0tQR571nsE",
+authDomain:"rtvoicet.firebaseapp.com",
+databaseURL:"https://rtvoicet-default-rtdb.firebaseio.com",
+projectId:"rtvoicet",
+storageBucket:"rtvoicet.firebasestorage.app",
+messagingSenderId:"574390825166",
+appId:"1:574390825166:web:29a4368f3d7829fa01a09f"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+db.ref("transcript").on("value", async(snapshot)=>{
+
+let text = snapshot.val();
+
+if(!text) return;
+
+const translated = await translateText(text);
+
+transcriptDiv.innerText = translated;
+
+transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+
+const sentences = translated.match(/[^\.!\?]+[\.!\?]+/g) || [];
+
+if(sentences.length > lastSentenceCount){
+
+const newOnes = sentences.slice(lastSentenceCount);
+
+newOnes.forEach(s=>{
+sentenceQueue.push(s.trim());
+});
+
+lastSentenceCount = sentences.length;
+
+processSpeechQueue();
+
+}
+
+});
+
+function processSpeechQueue(){
+
+if(!speechEnabled) return;
+
+if(speaking) return;
+
+if(sentenceQueue.length === 0) return;
+
+speaking = true;
+
+const sentence = sentenceQueue.shift();
+
+const utter = new SpeechSynthesisUtterance(sentence);
+
+utter.rate = 1;
+
+utter.lang = detectVoiceLanguage();
+
+utter.onend = ()=>{
+speaking = false;
+processSpeechQueue();
+};
+
+speechSynthesis.speak(utter);
+
+}
+
+function detectVoiceLanguage(){
+
+const pair = languageSelect.value;
+
+const lang = pair.split("|")[1];
+
+const map = {
+en:"en-US",
+fr:"fr-FR",
+ar:"ar-SA",
+ha:"en-US",
+yo:"en-US",
+ig:"en-US",
+ff:"en-US"
+};
+
+return map[lang] || "en-US";
+
+}
+
+async function translateText(text){
+
+const pair = languageSelect.value;
+
+if(pair === "en|en") return text;
+
+const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`;
+
+const res = await fetch(url);
+
+const data = await res.json();
+
+return data.responseData.translatedText;
+
+}
+
+function toggleSpeech(){
+
+speechEnabled = !speechEnabled;
+
+if(speechEnabled){
+processSpeechQueue();
+}
+
+}
+
+function generatePDF(){
+
+const {jsPDF} = window.jspdf;
+
+const doc = new jsPDF();
+
+const lines = doc.splitTextToSize(transcriptDiv.innerText,180);
+
+doc.text(lines,10,10);
+
+doc.save("lecture_transcript.pdf");
+
+}
+
+</script>
+
+</body>
+</html>

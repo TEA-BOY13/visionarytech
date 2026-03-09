@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lecturers Interface</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+margin:0;
+padding:0;
+height:100%;
+overflow:hidden;
+width:100%;
+background:linear-gradient(120deg,#005f73,#0a9396,#94d2bd,olive);
+background-size:400% 400%;
+animation:oceanFlow 10s ease infinite;
+}
+
+@keyframes oceanFlow{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+textarea#transcriptBox{
+width:90%;
+max-width:800px;
+height:300px;
+margin:20px auto;
+display:block;
+padding:15px;
+font-size:1.1rem;
+border:1px solid #ccc;
+border-radius:8px;
+resize:vertical;
+background:#fff;
+}
+
+button,select{
+display:block;
+margin:10px auto;
+padding:10px 20px;
+font-size:1rem;
+background-color:#007bff;
+color:#fff;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+button:hover{
+background-color:#0056b3;
+}
+
+#bb{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+align-items:center;
+justify-content:center;
+}
+
+#dash{
+width:100%;
+height:80px;
+padding:1%;
+display:flex;
+text-align:center;
+background-color:#0056b3;
+box-shadow:2px 3px 2px #005f73;
+}
+
+#logo{
+height:80px;
+width:70px;
+border-radius:10px;
+}
+
+@media(max-width:600px){
+
+textarea#transcriptBox{
+width:70%;
+font-size:1rem;
+padding:10px;
+}
+
+button{
+width:auto;
+font-size:small;
+}
+
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div id="dash">
+<img src="ysu.jpeg" id="logo">
+<marquee><h1>Real-Time Voice Transcription System</h1></marquee>
+</div>
+
+
+<div id="bb">
+
+<button onclick="startRecognition()">Start</button>
+
+<button onclick="pauseRecognition()">Pause</button>
+
+<button onclick="resumeRecognition()">Resume</button>
+
+<button onclick="speakTranscript()">🔊 Read Transcript</button>
+
+<button onclick="summarizeLecture()">AI Summary</button>
+
+</div>
+
+
+<textarea id="transcriptBox" placeholder="Your transcription will display here..."></textarea>
+
+
+<div id="bb">
+
+<button onclick="generatePDF()">Save as PDF</button>
+
+<select id="languageSelect">
+
+<option selected disabled>Translate Transcript</option>
+
+<option value="en|fr">French</option>
+
+<option value="en|ar">Arabic</option>
+
+<option value="en|ha">Hausa</option>
+
+<option value="en|yo">Yoruba</option>
+
+<option value="en|ig">Igbo</option>
+
+<option value="en|ff">Fulfulde</option>
+
+</select>
+
+<button onclick="translateTranscript()">Translate</button>
+
+
+<select id="onlineDropdown">
+<option selected disabled>Total Online Students</option>
+</select>
+
+</div>
+
+
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+
+<!-- PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+
+<script>
+
+const transcriptBox=document.getElementById("transcriptBox");
+
+let recognition;
+
+let finalTranscript="";
+
+let isRecognizing=false;
+
+
+
+/* WORD FILTER */
+
+const exceptionWords=["um","ah","okay","hmm"];
+
+function filterTranscript(text){
+
+let words=text.split(" ");
+
+let filtered=words.filter(word=>!exceptionWords.includes(word.toLowerCase()));
+
+return filtered.join(" ");
+
+}
+
+
+
+/* AI KEYWORD DETECTION */
+
+function highlightKeywords(text){
+
+const keywords=["algorithm","data","system","function","variable","definition","programming"];
+
+let words=text.split(" ");
+
+words=words.map(word=>{
+
+if(keywords.includes(word.toLowerCase())){
+
+return "🔹"+word;
+
+}
+
+return word;
+
+});
+
+return words.join(" ");
+
+}
+
+
+
+/* FIREBASE CONFIG */
+
+const firebaseConfig={
+
+apiKey:"AIzaSyBbXGnrJZd6sh48qBaMJFojs0tQR571nsE",
+
+authDomain:"rtvoicet.firebaseapp.com",
+
+databaseURL:"https://rtvoicet-default-rtdb.firebaseio.com",
+
+projectId:"rtvoicet",
+
+storageBucket:"rtvoicet.firebasestorage.app",
+
+messagingSenderId:"574390825166",
+
+appId:"1:574390825166:web:29a4368f3d7829fa01a09f",
+
+measurementId:"G-59M7EXW6N3"
+
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db=firebase.database();
+
+const onlineDropdown=document.getElementById("onlineDropdown");
+
+
+
+/* ONLINE STUDENTS */
+
+db.ref("status").on("value",(snapshot)=>{
+
+const data=snapshot.val();
+
+onlineDropdown.innerHTML='<option selected disabled>Total Online Students</option>';
+
+let count=0;
+
+for(let uid in data){
+
+const option=document.createElement("option");
+
+option.textContent="ID: "+data[uid].idNumber;
+
+onlineDropdown.appendChild(option);
+
+count++;
+
+}
+
+const totalOption=document.createElement("option");
+
+totalOption.textContent=`${count} students online`;
+
+totalOption.disabled=true;
+
+totalOption.selected=true;
+
+onlineDropdown.insertBefore(totalOption,onlineDropdown.firstChild);
+
+});
+
+
+
+/* SPEECH RECOGNITION */
+
+window.SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+
+if(window.SpeechRecognition){
+
+recognition=new SpeechRecognition();
+
+recognition.continuous=true;
+
+recognition.interimResults=true;
+
+recognition.lang="en-NG";
+
+
+recognition.onresult=(event)=>{
+
+let interim='';
+
+for(let i=event.resultIndex;i<event.results.length;i++){
+
+let transcript=event.results[i][0].transcript;
+
+transcript=highlightKeywords(filterTranscript(transcript));
+
+if(event.results[i].isFinal){
+
+finalTranscript+=transcript+". ";
+
+}else{
+
+interim+=transcript;
+
+}
+
+}
+
+transcriptBox.value=finalTranscript+interim;
+
+transcriptBox.scrollTop=transcriptBox.scrollHeight;
+
+db.ref("transcript").set(transcriptBox.value);
+
+};
+
+}
+
+
+
+/* CONTROL BUTTONS */
+
+function startRecognition(){
+
+if(!isRecognizing&&recognition){
+
+recognition.start();
+
+isRecognizing=true;
+
+}
+
+}
+
+function pauseRecognition(){
+
+if(isRecognizing&&recognition){
+
+recognition.stop();
+
+isRecognizing=false;
+
+}
+
+}
+
+function resumeRecognition(){
+
+if(!isRecognizing&&recognition){
+
+recognition.start();
+
+isRecognizing=true;
+
+}
+
+}
+
+
+
+/* TRANSLATION */
+
+async function translateTranscript(){
+
+const text=transcriptBox.value;
+
+const langPair=document.getElementById("languageSelect").value;
+
+const url=`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+
+const response=await fetch(url);
+
+const data=await response.json();
+
+transcriptBox.value=data.responseData.translatedText;
+
+}
+
+
+
+/* TEXT TO SPEECH */
+
+function speakTranscript(){
+
+const speech=new SpeechSynthesisUtterance(transcriptBox.value);
+
+speech.lang="en-US";
+
+speech.rate=1;
+
+window.speechSynthesis.speak(speech);
+
+}
+
+
+
+/* AI SUMMARY */
+
+function summarizeLecture(){
+
+let text=transcriptBox.value;
+
+let sentences=text.split(".");
+
+let summary=sentences.slice(0,3).join(".");
+
+transcriptBox.value="AI Lecture Summary:\n\n"+summary;
+
+}
+
+
+
+/* PDF DOWNLOAD */
+
+function generatePDF(){
+
+const {jsPDF}=window.jspdf;
+
+const doc=new jsPDF();
+
+const lines=doc.splitTextToSize(transcriptBox.value,180);
+
+doc.text(lines,10,10);
+
+doc.save("transcription.pdf");
+
+}
+
+</script>
+
+</body>
+</html>
