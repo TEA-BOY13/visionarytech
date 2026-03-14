@@ -100,7 +100,7 @@ font-size:small;
 <body>
 
 <div id="dash">
-<img src="ysu.jpeg" id="logo">
+<img src="logo.jpg" id="logo">
 <marquee><h1>Real-Time Voice Transcription System</h1></marquee>
 </div>
 
@@ -113,9 +113,9 @@ font-size:small;
 
 <button onclick="resumeRecognition()">Resume</button>
 
-<button onclick="speakTranscript()">🔊 Read Transcript</button>
+<button onclick="speakTranscript()">Read Transcript</button>
 
-<button onclick="summarizeLecture()">AI Summary</button>
+<button onclick="summarizeLecture()">Summarize note</button>
 
 </div>
 
@@ -181,7 +181,7 @@ let isRecognizing=false;
 
 /* WORD FILTER */
 
-const exceptionWords=["um","ah","okay","hmm"];
+const exceptionWords=["um","ah","fuck","hmm","pussy"];
 
 function filterTranscript(text){
 

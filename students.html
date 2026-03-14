@@ -19,10 +19,12 @@ align-items:center;
 
 #header{
 width:100%;
-background:#003049;
-color:white;
-padding:15px;
+height:80px;
+padding:1%;
+display:flex;
 text-align:center;
+background-color:#0056b3;
+box-shadow:2px 3px 2px #005f73;
 }
 
 #transcript{
@@ -57,6 +59,11 @@ cursor:pointer;
 button:hover{
 background:#023e8a;
 }
+#logo{
+height:80px;
+width:70px;
+border-radius:10px;
+}
 
 </style>
 </head>
@@ -65,7 +72,8 @@ background:#023e8a;
 <body>
 
 <div id="header">
-<h2>Live Lecture Transcription</h2>
+    <img src="logo.jpg" id="logo">
+<marquee behavior="scroll" direction="left"><h2>Live Lecture Transcription</h2></marquee>
 </div>
 
 
@@ -81,9 +89,9 @@ background:#023e8a;
 <option value="en|ff">Fulfulde</option>
 </select>
 
-<button onclick="speakText()">🔊 Listen</button>
+<button onclick="speakText()">Auto Read</button>
 
-<button onclick="generatePDF()">📄 Save as PDF</button>
+<button onclick="generatePDF()">Save as PDF</button>
 
 </div>
 
